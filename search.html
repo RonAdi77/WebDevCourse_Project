@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Search - WebDev Project</title>
+    <!-- Bootswatch Cyborg Theme -->
+    <link rel="stylesheet" href="https://bootswatch.com/5/cyborg/bootstrap.min.css">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .video-card {
+            transition: transform 0.3s;
+        }
+        .video-card:hover {
+            transform: translateY(-5px);
+        }
+        .video-card.in-favorites {
+            border: 2px solid #28a745 !important;
+        }
+        .video-thumbnail {
+            cursor: pointer;
+        }
+        .video-title {
+            cursor: pointer;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        .video-container {
+            position: relative;
+            padding-bottom: 56.25%;
+            height: 0;
+            overflow: hidden;
+        }
+        .video-container iframe {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+<body>
+    <!-- User Header - Shows logged in user info -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary mb-4 shadow">
+        <div class="container-fluid">
+            <div class="d-flex align-items-center">
+                <img id="userImage" src="" alt="User Image" class="rounded-circle me-2" style="width: 40px; height: 40px; object-fit: cover;">
+                <span id="userGreeting" class="navbar-brand mb-0">Hello, User</span>
+            </div>
+            <div class="d-flex gap-2">
+                <a href="playlists.html" class="btn btn-info">
+                    <i class="fas fa-list me-1"></i>My Playlists
+                </a>
+                <button class="btn btn-danger" id="logoutBtn">
+                    <i class="fas fa-sign-out-alt me-1"></i>Logout
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <main>
+            <!-- Search Section -->
+            <section class="mb-4">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <h2 class="card-title mb-3">Search for Videos</h2>
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="searchInput" placeholder="Enter song name or artist...">
+                            <button id="searchBtn" class="btn btn-primary">
+                                <i class="fas fa-search me-1"></i>Search
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Results Section -->
+            <section id="resultsSection">
+                <div class="row g-4" id="resultsGrid">
+                    <!-- Search results will be dynamically inserted here -->
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Video Player Modal -->
+    <div class="modal fade" id="videoModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Video Player</h5>
+                    <button type="button" class="btn-close" id="closeModal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="video-container" id="videoContainer">
+                        <!-- YouTube iframe will be inserted here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add to Favorites Modal -->
+    <div class="modal fade" id="favoritesModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Add to Favorites</h5>
+                    <button type="button" class="btn-close" id="closeFavoritesModal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="radio" name="favoriteOption" id="existingOption" value="existing" checked>
+                            <label class="form-check-label" for="existingOption">
+                                Select existing playlist
+                            </label>
+                        </div>
+                        <select id="playlistSelect" class="form-select">
+                            <option value="">-- Select Playlist --</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="radio" name="favoriteOption" id="newOption" value="new">
+                            <label class="form-check-label" for="newOption">
+                                Create new playlist
+                            </label>
+                        </div>
+                        <input type="text" id="newPlaylistName" class="form-control" placeholder="Enter playlist name" style="display: none;">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" id="closeFavoritesModalBtn">Close</button>
+                    <button type="button" class="btn btn-primary" id="addToFavoritesBtn">Add to Favorites</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="js/storage.js"></script>
+    <script src="js/search.js"></script>
+</body>
+</html>
+

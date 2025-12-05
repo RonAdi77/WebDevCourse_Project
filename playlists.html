@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Playlists - WebDev Project</title>
+    <!-- Bootswatch Cyborg Theme -->
+    <link rel="stylesheet" href="https://bootswatch.com/5/cyborg/bootstrap.min.css">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .playlist-item {
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        .playlist-item:hover {
+            background-color: #f8f9fa;
+        }
+        .playlist-item.active {
+            background-color: #0d6efd;
+            color: white;
+        }
+        .playlist-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <!-- User Header - Shows logged in user info -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary mb-4 shadow">
+        <div class="container-fluid">
+            <div class="d-flex align-items-center">
+                <img id="userImage" src="" alt="User Image" class="rounded-circle me-2" style="width: 40px; height: 40px; object-fit: cover;">
+                <span id="userGreeting" class="navbar-brand mb-0">Hello, User</span>
+            </div>
+            <div class="d-flex gap-2">
+                <a href="search.html" class="btn btn-success">
+                    <i class="fas fa-search me-1"></i>Search Videos
+                </a>
+                <button class="btn btn-danger" id="logoutBtn">
+                    <i class="fas fa-sign-out-alt me-1"></i>Logout
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="row">
+            <!-- Sidebar -->
+            <aside class="col-md-3 mb-4">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <h2 class="h5 mb-3">My Library</h2>
+                        <button class="btn btn-primary w-100 mb-3" id="newPlaylistBtn">
+                            <i class="fas fa-plus-circle me-1"></i>New Playlist
+                        </button>
+                        <ul class="list-group list-group-flush playlist-list" id="playlistList">
+                            <!-- Playlists will be dynamically inserted here -->
+                        </ul>
+                        <button class="btn btn-success w-100 mt-3" id="playPlaylistBtn" disabled>
+                            <i class="fas fa-play me-1"></i>Play Playlist
+                        </button>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Main Content -->
+            <main class="col-md-9">
+                <!-- YouTube Search Section (shown when playlist is selected) -->
+                <div class="card border-primary mb-3" id="youtubeSearchCard" style="display: none;">
+                    <div class="card-body">
+                        <h5 class="card-title mb-3">
+                            <i class="fab fa-youtube me-2"></i>Search YouTube Videos
+                        </h5>
+                        <div class="input-group mb-3">
+                            <input type="text" class="form-control" id="youtubeSearchInput" placeholder="Enter song name or artist...">
+                            <button id="youtubeSearchBtn" class="btn btn-primary">
+                                <i class="fas fa-search me-1"></i>Search
+                            </button>
+                            <button id="clearSearchBtn" class="btn btn-secondary" style="display: none;">
+                                <i class="fas fa-times me-1"></i>Clear
+                            </button>
+                        </div>
+                        <div id="youtubeSearchResults" class="row g-3" style="max-height: 500px; overflow-y: auto;">
+                            <!-- YouTube search results will be inserted here -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Playlist Content -->
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h3 class="h5 mb-0" id="playlistTitle">Select a playlist from the list</h3>
+                            <button class="btn btn-outline-primary" id="viewToggleBtn" title="Toggle View" style="display: none;">
+                                <i class="fas fa-th" id="viewToggleIcon"></i>
+                            </button>
+                        </div>
+                        <div class="d-flex gap-2 mb-3" id="playlistControls" style="display: none;">
+                            <input type="text" class="form-control" id="searchPlaylistInput" placeholder="Search in playlist...">
+                            <button class="btn btn-outline-primary" id="sortBtn">Sort A-Z</button>
+                        </div>
+                        <!-- Table View -->
+                        <div id="tableView">
+                            <table class="table table-hover" id="playlistTable" style="display: none;">
+                                <thead>
+                                    <tr>
+                                        <th>Thumbnail</th>
+                                        <th>Title</th>
+                                        <th>Rating</th>
+                                        <th class="text-end">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="playlistTableBody"></tbody>
+                            </table>
+                        </div>
+                        <!-- Cards View -->
+                        <div id="cardsView" style="display: none;">
+                            <div class="row g-3" id="playlistCards"></div>
+                        </div>
+                        <div id="playlistSongs">
+                            <p class="text-muted text-center py-5">Select a playlist from the list to view its content</p>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- New Playlist Modal -->
+    <div class="modal fade" id="newPlaylistModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Create New Playlist</h5>
+                    <button type="button" class="btn-close" id="closeNewPlaylistModal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="newPlaylistNameInput" class="form-label">Playlist Name</label>
+                        <input type="text" class="form-control" id="newPlaylistNameInput" placeholder="Enter playlist name">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" id="closeNewPlaylistModalBtn">Close</button>
+                    <button type="button" class="btn btn-primary" id="createPlaylistBtn">Create Playlist</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div class="toast-container position-fixed bottom-0 end-0 p-3">
+        <div id="toast" class="toast" role="alert">
+            <div class="toast-header">
+                <strong class="me-auto">Notification</strong>
+                <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
+            </div>
+            <div class="toast-body">
+                <span id="toastMessage"></span>
+                <a id="toastLink" href="#" class="d-block mt-2" style="display: none;">Go to Playlist</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="js/storage.js"></script>
+    <script src="js/playlists.js"></script>
+</body>
+</html>
+
