@@ -1,6 +1,6 @@
-# WebDev Course Project - Stage A
+# WebDev Course Project - Stage B (With Server)
 
-A web-based music/video playlist management system with user authentication, YouTube video search, and playlist management.
+A web-based music/video playlist management system with user authentication, YouTube video search, and playlist management. **This version includes a Node.js/Express server** for user management, playlist storage, and MP3 file uploads.
 
 ## Project Structure
 
@@ -11,12 +11,18 @@ Project/
 ├── login.html              # User login page
 ├── search.html             # YouTube video search page
 ├── playlists.html          # Playlist management page
-└── js/
-    ├── storage.js         # LocalStorage/SessionStorage utilities
-    ├── register.js        # Registration functionality
-    ├── login.js           # Login functionality
-    ├── search.js          # YouTube search and video management
-    └── playlists.js       # Playlist management functionality
+├── server.js               # Node.js/Express server
+├── package.json           # Node.js dependencies
+├── js/
+│   ├── storage.js         # LocalStorage/SessionStorage utilities (fallback)
+│   ├── register.js        # Registration functionality (API calls)
+│   ├── login.js           # Login functionality (API calls)
+│   ├── search.js          # YouTube search and video management
+│   └── playlists.js       # Playlist management functionality (API calls)
+├── data/                   # Server data files (created automatically)
+│   ├── users.json         # User data
+│   └── playlists.json     # Playlist data
+└── uploads/                # Uploaded MP3 files (created automatically)
 ```
 
 **Note:** This project uses **Bootswatch Cyborg Theme** (Bootstrap 5) and **Font Awesome 6.0.0** via CDN for all styling and icons. No local CSS files are needed.
@@ -67,12 +73,16 @@ Project/
   - "Play Playlist" button
 - Main content area:
   - Displays selected playlist content
+  - YouTube search within playlist (add videos directly)
+  - MP3 file upload support
+  - Dual view mode: Table or Bootstrap Cards (toggle button)
   - Search within playlist
   - Sort by name (A-Z) or rating
-  - Rate videos (0-5)
+  - Rate videos (1-10)
   - Delete videos or entire playlists
 - Toast notifications with links
 - Query string support for direct playlist access
+- Enhanced UI with smooth animations and hover effects
 
 ## Technical Details
 
@@ -96,6 +106,8 @@ Project/
 
 **sessionStorage:**
 - `currentUser`: Currently logged-in user object
+- `lastSearchQuery`: Last search query (for persistence)
+- `lastSearchResults`: Last search results (JSON string, for persistence)
 
 ### API Integration
 
@@ -131,10 +143,14 @@ Project/
 - Video search and display
 - Modal video player
 - Add to favorites functionality
+- Search results persistence (saved in sessionStorage)
+- URL query string synchronization (`?q=searchterm`)
 
 **playlists.js:**
 - Playlist management
-- Video rating
+- YouTube search within playlist
+- Dual view modes (table/cards)
+- Video rating (1-10)
 - Search and sort
 - Delete operations
 - Toast notifications
@@ -146,7 +162,7 @@ Project/
    - Create a new project or select existing
    - Enable YouTube Data API v3
    - Create credentials (API Key)
-   - Replace `YOUR_YOUTUBE_API_KEY_HERE` in `js/search.js`
+   - Replace the API key in `js/search.js` and `js/playlists.js` (look for `YOUTUBE_API_KEY`)
 
 2. **Update Student Information:**
    - Edit `index.html` and update:
@@ -155,16 +171,20 @@ Project/
      - GitHub link
      - Live website link
 
-3. **Run the Project:**
-   - Open `index.html` in a web browser
-   - Or use a local server (recommended):
-     ```bash
-     # Using Python
-     python -m http.server 8000
-     
-     # Using Node.js (http-server)
-     npx http-server
-     ```
+3. **Install Dependencies:**
+   ```bash
+   npm install
+   ```
+
+4. **Run the Server:**
+   ```bash
+   npm start
+   ```
+   The server will run on `http://localhost:3000`
+
+5. **Access the Application:**
+   - Open your browser and go to `http://localhost:3000`
+   - Or open `http://localhost:3000/index.html` directly
 
 ## Usage Flow
 
@@ -183,20 +203,39 @@ Project/
    - View results
    - Click play to watch video
    - Click "Add to Favorites" to add to playlist
+   - Search results are saved and restored when navigating back
+   - URL is synced with search query (`?q=searchterm`)
 
 4. **Playlists:**
    - View all playlists in sidebar
    - Select playlist to view content
-   - Rate videos
+   - Use YouTube search within playlist to add videos directly
+   - Toggle between table and card view
+   - Rate videos (1-10)
    - Search and sort within playlist
    - Delete videos or playlists
 
+## Data Storage
+
+- **Client-side (localStorage):**
+  - `users`: Array of all registered users
+  - `playlists`: Object with user playlists (key: username, value: array)
+  
+- **Client-side (sessionStorage):**
+  - `currentUser`: Currently logged-in user
+  - `lastSearchQuery`: Last search query
+  - `lastSearchResults`: Last search results (JSON)
+
 ## Notes
 
-- All data is stored in browser localStorage (client-side only)
+- **Server Required:** This project requires the Node.js server to be running
 - Passwords are stored in plain text (NOT secure - for educational purposes only)
-- YouTube API has quota limits
-- MP3 upload feature mentioned in requirements is not fully implemented in this version
+- YouTube API has quota limits - you need your own API key
+- All data is stored on the server in JSON files (with localStorage fallback)
+- Search results are automatically saved and restored when navigating back
+- URL query strings are synced with search queries for bookmarking/sharing
+- MP3 uploads are stored on the server in the `uploads/` directory
+- Enhanced UI with smooth animations and modern design
 
 ## Browser Compatibility
 
