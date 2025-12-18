@@ -11,18 +11,75 @@
     <style>
         .playlist-item {
             cursor: pointer;
-            transition: background-color 0.3s;
+            transition: all 0.3s ease;
+            border-left: 3px solid transparent;
         }
         .playlist-item:hover {
-            background-color: #f8f9fa;
+            background-color: rgba(0, 255, 255, 0.1);
+            border-left-color: #0ff;
+            transform: translateX(5px);
         }
         .playlist-item.active {
             background-color: #0d6efd;
             color: white;
+            border-left-color: #0ff;
+            font-weight: bold;
         }
         .playlist-list {
             max-height: 400px;
             overflow-y: auto;
+        }
+        .card {
+            transition: all 0.3s ease;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .card:hover {
+            box-shadow: 0 8px 16px rgba(0, 255, 255, 0.2);
+            transform: translateY(-2px);
+        }
+        .btn {
+            transition: all 0.3s ease;
+        }
+        .btn:hover {
+            transform: scale(1.05);
+        }
+        .btn:active {
+            transform: scale(0.95);
+        }
+        .form-control:focus {
+            border-color: #0ff;
+            box-shadow: 0 0 0 0.2rem rgba(0, 255, 255, 0.25);
+        }
+        .table-hover tbody tr {
+            transition: all 0.2s ease;
+        }
+        .table-hover tbody tr:hover {
+            background-color: rgba(0, 255, 255, 0.1);
+            transform: scale(1.01);
+        }
+        .card-img-top {
+            transition: transform 0.3s ease;
+        }
+        .card-img-top:hover {
+            transform: scale(1.05);
+        }
+        #youtubeSearchResults {
+            scrollbar-width: thin;
+            scrollbar-color: #0ff rgba(255, 255, 255, 0.1);
+        }
+        #youtubeSearchResults::-webkit-scrollbar {
+            width: 8px;
+        }
+        #youtubeSearchResults::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.1);
+        }
+        #youtubeSearchResults::-webkit-scrollbar-thumb {
+            background: #0ff;
+            border-radius: 4px;
+        }
+        .rating-input:focus {
+            border-color: #ffc107;
+            box-shadow: 0 0 0 0.2rem rgba(255, 193, 7, 0.25);
         }
     </style>
 </head>
@@ -88,14 +145,48 @@
                     </div>
                 </div>
 
+                <!-- MP3 Upload Section (shown when playlist is selected) -->
+                <div class="card border-success mb-3" id="mp3UploadCard" style="display: none;">
+                    <div class="card-body">
+                        <h5 class="card-title mb-3">
+                            <i class="fas fa-upload me-2"></i>Upload MP3 File
+                        </h5>
+                        <form id="mp3UploadForm" class="row g-2">
+                            <div class="col-md-4">
+                                <label for="mp3Title" class="form-label">Song Title</label>
+                                <input type="text" class="form-control" id="mp3Title" placeholder="Enter song title" required>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="mp3File" class="form-label">MP3 File</label>
+                                <input type="file" class="form-control" id="mp3File" accept="audio/mpeg,audio/mp3" required>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">&nbsp;</label>
+                                <button type="submit" class="btn btn-success w-100">
+                                    <i class="fas fa-upload me-1"></i>Upload
+                                </button>
+                            </div>
+                        </form>
+                        <small class="text-muted mt-2 d-block">
+                            <i class="fas fa-info-circle me-1"></i>
+                            Supported format: MP3 files only (max 10MB)
+                        </small>
+                    </div>
+                </div>
+
                 <!-- Playlist Content -->
                 <div class="card shadow-sm">
                     <div class="card-body">
                         <div class="d-flex justify-content-between align-items-center mb-3">
                             <h3 class="h5 mb-0" id="playlistTitle">Select a playlist from the list</h3>
-                            <button class="btn btn-outline-primary" id="viewToggleBtn" title="Toggle View" style="display: none;">
-                                <i class="fas fa-th" id="viewToggleIcon"></i>
-                            </button>
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-outline-primary" id="viewToggleBtn" title="Toggle View" style="display: none;">
+                                    <i class="fas fa-th" id="viewToggleIcon"></i>
+                                </button>
+                                <button class="btn btn-outline-danger" id="deletePlaylistBtn" title="Delete Playlist" style="display: none;">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
                         </div>
                         <div class="d-flex gap-2 mb-3" id="playlistControls" style="display: none;">
                             <input type="text" class="form-control" id="searchPlaylistInput" placeholder="Search in playlist...">

@@ -31,14 +31,19 @@ const closeFavoritesModalBtn = document.getElementById('closeFavoritesModalBtn')
 const playlistSelect = document.getElementById('playlistSelect');
 const newPlaylistName = document.getElementById('newPlaylistName');
 const addToFavoritesBtn = document.getElementById('addToFavoritesBtn');
+const toastElement = document.getElementById('toast');
+const toastMessage = document.getElementById('toastMessage');
 
-// Bootstrap Modal instances
+// Bootstrap Modal and Toast instances
 let videoModal = null;
 let favoritesModal = null;
+let toast = null;
 
 // Current video being added to favorites
 let currentVideoToAdd = null;
 let currentUser = null;
+let lastSearchResults = []; // Store last search results
+let lastSearchQuery = ''; // Store last search query
 
 /**
  * Check if user is logged in
@@ -159,8 +164,17 @@ function isVideoInFavorites(videoId) {
 /**
  * Display search results as cards
  * @param {Array} videos - Array of video objects
+ * @param {string} query - Search query (optional, for saving)
  */
-function displayResults(videos) {
+function displayResults(videos, query = '') {
+    // Save results and query to sessionStorage
+    lastSearchQuery = query || lastSearchQuery;
+    lastSearchResults = videos;
+    if (query) {
+        sessionStorage.setItem('lastSearchQuery', query);
+    }
+    sessionStorage.setItem('lastSearchResults', JSON.stringify(videos));
+    
     resultsGrid.innerHTML = ''; // Clear previous results
     
     if (videos.length === 0) {
@@ -204,6 +218,12 @@ function displayResults(videos) {
     
     // Add event listeners to cards
     attachCardEventListeners();
+    
+    // Save results to sessionStorage for persistence
+    lastSearchResults = videos;
+    lastSearchQuery = query;
+    sessionStorage.setItem('lastSearchResults', JSON.stringify(videos));
+    sessionStorage.setItem('lastSearchQuery', query);
 }
 
 /**
@@ -287,8 +307,10 @@ async function openAddToFavoritesModal(videoId) {
     currentVideoToAdd = {
         videoId: videoId,
         title: title,
+        url: `https://www.youtube.com/watch?v=${videoId}`,
         thumbnail: thumbnail,
-        type: 'youtube' // Can be 'youtube' or 'mp3'
+        type: 'youtube',
+        rating: 1 // Default rating
     };
     
     loadPlaylists();
@@ -313,15 +335,86 @@ function closeAddToFavoritesModal() {
 }
 
 /**
+ * Show toast notification with link to playlist
+ * @param {string} playlistName - Name of the playlist
+ * @param {string} playlistId - ID of the playlist
+ */
+/**
+ * Show toast notification with link to playlist
+ * @param {string} playlistName - Name of the playlist
+ * @param {string} playlistId - ID of the playlist
+ */
+function showToastWithLink(playlistName, playlistId) {
+    if (!toastElement || !toastMessage) return;
+    
+    // Create toast message with link
+    toastMessage.innerHTML = `
+        <div class="d-flex align-items-center">
+            <i class="fas fa-check-circle text-success me-2"></i>
+            <span>Video added to playlist <strong>"${playlistName}"</strong> successfully!</span>
+        </div>
+        <div class="mt-2">
+            <a href="playlists.html?playlistId=${playlistId}" class="btn btn-sm btn-primary">
+                <i class="fas fa-arrow-right me-1"></i>Go to Playlist
+            </a>
+        </div>
+    `;
+    
+    // Initialize toast if not already initialized
+    if (!toast) {
+        toast = new bootstrap.Toast(toastElement, {
+            autohide: true,
+            delay: 6000 // 6 seconds - enough time to read and click
+        });
+    }
+    
+    // Show toast
+    toast.show();
+}
+
+/**
+ * Save playlists to server API AND localStorage
+ * This function ensures data is saved in both places for redundancy
+ */
+async function savePlaylistsToServer(playlists) {
+    // ALWAYS save to localStorage first (for immediate availability)
+    saveUserPlaylists(currentUser.username, playlists);
+    
+    // Then save to server
+    try {
+        const response = await fetch(`/api/playlists/${currentUser.username}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(playlists)
+        });
+        
+        if (!response.ok) {
+            throw new Error('Failed to save playlists to server');
+        }
+        
+        console.log(`Successfully saved ${playlists.length} playlists to server and localStorage`);
+        return true;
+    } catch (error) {
+        console.error('Error saving playlists to server:', error);
+        console.log('Data saved to localStorage only (server unavailable)');
+        // Data is already saved to localStorage above, so we return false but data is still available
+        return false;
+    }
+}
+
+/**
  * Handle add to favorites form submission
  */
-function handleAddToFavorites() {
+async function handleAddToFavorites() {
     if (!currentVideoToAdd) return;
     
     const selectedOption = document.querySelector('input[name="favoriteOption"]:checked').value;
     
     let playlistId;
     let playlistName;
+    let playlists;
     
     if (selectedOption === 'existing') {
         playlistId = playlistSelect.value;
@@ -329,7 +422,7 @@ function handleAddToFavorites() {
             alert('Please select a playlist');
             return;
         }
-        const playlists = getUserPlaylists(currentUser.username);
+        playlists = getUserPlaylists(currentUser.username);
         const playlist = playlists.find(p => p.id === playlistId);
         playlistName = playlist ? playlist.name : '';
     } else {
@@ -338,27 +431,103 @@ function handleAddToFavorites() {
             alert('Please enter a playlist name');
             return;
         }
+        // Create playlist locally first
         const newPlaylist = createPlaylist(currentUser.username, playlistName);
         playlistId = newPlaylist.id;
+        playlists = getUserPlaylists(currentUser.username);
     }
     
     // Add video to playlist
     const added = addVideoToPlaylist(currentUser.username, playlistId, currentVideoToAdd);
     
     if (added) {
-        closeAddToFavoritesModal();
-        // Refresh search results to update "In Favorites" status
-        if (searchInput.value) {
-            searchBtn.click();
+        // Get updated playlists
+        playlists = getUserPlaylists(currentUser.username);
+        
+        console.log('Saving playlists to server:', playlists);
+        
+        // Save to server
+        const saved = await savePlaylistsToServer(playlists);
+        
+        if (!saved) {
+            console.error('Failed to save playlists to server - using localStorage only');
+            // Data is already saved to localStorage, continue silently
         }
-        // Redirect to playlists page with toast notification
-        window.location.href = `playlists.html?playlistId=${playlistId}&showToast=true`;
+        
+        closeAddToFavoritesModal();
+        
+        // Refresh search results to update "In Favorites" status
+        if (lastSearchResults.length > 0) {
+            displayResults(lastSearchResults, lastSearchQuery);
+        }
+        
+        // Show toast notification with link to playlist (instead of redirect)
+        showToastWithLink(playlistName, playlistId);
     } else {
         alert('Video is already in this playlist');
     }
 }
 
 // Event Listeners
+
+/**
+ * Update URL with search query
+ * @param {string} query - Search query
+ */
+function updateURL(query) {
+    const url = new URL(window.location);
+    if (query) {
+        url.searchParams.set('q', query);
+    } else {
+        url.searchParams.delete('q');
+    }
+    window.history.pushState({}, '', url);
+}
+
+/**
+ * Load search results from URL or sessionStorage
+ */
+function loadSearchFromURL() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const queryFromURL = urlParams.get('q');
+    
+    if (queryFromURL) {
+        // Load query from URL
+        searchInput.value = queryFromURL;
+        // Try to load results from sessionStorage first
+        const savedResults = sessionStorage.getItem('lastSearchResults');
+        const savedQuery = sessionStorage.getItem('lastSearchQuery');
+        
+        if (savedResults && savedQuery === queryFromURL) {
+            // Load saved results
+            try {
+                const videos = JSON.parse(savedResults);
+                displayResults(videos, queryFromURL);
+                return; // Don't perform new search if we loaded saved results
+            } catch (e) {
+                console.error('Error parsing saved results:', e);
+            }
+        }
+        // Perform new search if no saved results or query mismatch
+        searchBtn.click();
+    } else {
+        // No query in URL - check if there are saved results from previous session
+        const savedResults = sessionStorage.getItem('lastSearchResults');
+        const savedQuery = sessionStorage.getItem('lastSearchQuery');
+        
+        if (savedResults && savedQuery) {
+            searchInput.value = savedQuery;
+            try {
+                const videos = JSON.parse(savedResults);
+                displayResults(videos, savedQuery);
+                // Update URL without triggering search
+                updateURL(savedQuery);
+            } catch (e) {
+                console.error('Error parsing saved results:', e);
+            }
+        }
+    }
+}
 
 // Search functionality
 searchBtn.addEventListener('click', async function() {
@@ -368,14 +537,17 @@ searchBtn.addEventListener('click', async function() {
         return;
     }
     
+    // Update URL with query
+    updateURL(query);
+    
     searchBtn.disabled = true;
-    searchBtn.textContent = 'Searching...';
+    searchBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Searching...';
     
     const videos = await searchYouTube(query);
-    displayResults(videos);
+    displayResults(videos, query);
     
     searchBtn.disabled = false;
-    searchBtn.textContent = 'Search';
+    searchBtn.innerHTML = '<i class="fas fa-search me-1"></i>Search';
 });
 
 // Enter key in search input
@@ -416,16 +588,22 @@ addToFavoritesBtn.addEventListener('click', handleAddToFavorites);
 // Initialize page
 if (checkAuthentication()) {
     initializeUserHeader();
-}
-
-// Logout functionality - register after DOM is ready
-if (logoutBtn) {
-    logoutBtn.addEventListener('click', function() {
-        if (confirm('Are you sure you want to logout?')) {
-            clearCurrentUser();
-            window.location.href = 'login.html';
-        }
-    });
+    
+    // Load search from URL or sessionStorage
+    loadSearchFromURL();
+    
+    // Logout functionality - register after DOM is ready
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', function() {
+            if (confirm('Are you sure you want to logout?')) {
+                clearCurrentUser();
+                // Clear search results on logout
+                sessionStorage.removeItem('lastSearchQuery');
+                sessionStorage.removeItem('lastSearchResults');
+                window.location.href = 'login.html';
+            }
+        });
+    }
 } else {
     // If logoutBtn is not found, try again after DOM loads
     document.addEventListener('DOMContentLoaded', function() {
@@ -434,6 +612,9 @@ if (logoutBtn) {
             logoutBtnRetry.addEventListener('click', function() {
                 if (confirm('Are you sure you want to logout?')) {
                     clearCurrentUser();
+                    // Clear search results on logout
+                    sessionStorage.removeItem('lastSearchQuery');
+                    sessionStorage.removeItem('lastSearchResults');
                     window.location.href = 'login.html';
                 }
             });

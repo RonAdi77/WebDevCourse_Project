@@ -151,7 +151,7 @@ function validateForm() {
  * Handle form submission
  * @param {Event} e - Form submit event
  */
-registerForm.addEventListener('submit', function(e) {
+registerForm.addEventListener('submit', async function(e) {
     e.preventDefault(); // Prevent default form submission
     
     // Validate form
@@ -167,16 +167,44 @@ registerForm.addEventListener('submit', function(e) {
         imageUrl: imageUrlInput.value.trim()
     };
     
-    // Save user to localStorage
-    const saved = saveUser(newUser);
-    
-    if (saved) {
-        // Success - redirect to login page
-        alert('Registration successful! Redirecting to login...');
-        window.location.href = 'login.html';
-    } else {
-        // Username already exists (shouldn't happen if validation worked, but just in case)
-        showError(usernameError, 'Username already exists');
+    try {
+        // Register user via API
+        const response = await fetch('/api/register', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(newUser)
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            // Also save to localStorage for fallback
+            saveUser(newUser);
+            // Success - redirect to login page
+            alert('Registration successful! Redirecting to login...');
+            window.location.href = 'login.html';
+        } else {
+            // Show error from server
+            if (data.error.includes('Username')) {
+                showError(usernameError, data.error);
+            } else if (data.error.includes('Password')) {
+                showError(passwordError, data.error);
+            } else {
+                showError(usernameError, data.error);
+            }
+        }
+    } catch (error) {
+        console.error('Registration error:', error);
+        // Fallback to localStorage
+        const saved = saveUser(newUser);
+        if (saved) {
+            alert('Registration successful! Redirecting to login...');
+            window.location.href = 'login.html';
+        } else {
+            showError(usernameError, 'Username already exists');
+        }
     }
 });
 

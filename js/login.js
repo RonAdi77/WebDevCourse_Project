@@ -50,7 +50,7 @@ function hideError(errorElement) {
  * Handle form submission
  * @param {Event} e - Form submit event
  */
-loginForm.addEventListener('submit', function(e) {
+loginForm.addEventListener('submit', async function(e) {
     e.preventDefault(); // Prevent default form submission
     
     // Reset errors
@@ -71,25 +71,54 @@ loginForm.addEventListener('submit', function(e) {
         return;
     }
     
-    // Verify credentials
-    const user = verifyUser(username, password);
-    
-    if (user) {
-        // Ensure username is included in the user object
-        if (!user.username) {
-            user.username = username;
+    try {
+        // Login via API
+        const response = await fetch('/api/login', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ username, password })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok && data.user) {
+            const user = data.user;
+            // Ensure username is included
+            if (!user.username) {
+                user.username = username;
+            }
+            // Debug: Log user before saving
+            console.log('Logging in user:', user);
+            // Success - save to sessionStorage and redirect
+            setCurrentUser(user);
+            // Also save to localStorage for fallback
+            const localUser = verifyUser(username, password);
+            if (localUser) {
+                // User exists in localStorage, good
+            }
+            // Verify it was saved correctly
+            const savedUser = getCurrentUser();
+            console.log('User saved to sessionStorage:', savedUser);
+            window.location.href = 'search.html';
+        } else {
+            // Invalid credentials
+            showError(passwordError, data.error || 'Invalid username or password');
         }
-        // Debug: Log user before saving
-        console.log('Logging in user:', user);
-        // Success - save to sessionStorage and redirect
-        setCurrentUser(user);
-        // Verify it was saved correctly
-        const savedUser = getCurrentUser();
-        console.log('User saved to sessionStorage:', savedUser);
-        window.location.href = 'search.html';
-    } else {
-        // Invalid credentials
-        showError(passwordError, 'Invalid username or password');
+    } catch (error) {
+        console.error('Login error:', error);
+        // Fallback to localStorage
+        const user = verifyUser(username, password);
+        if (user) {
+            if (!user.username) {
+                user.username = username;
+            }
+            setCurrentUser(user);
+            window.location.href = 'search.html';
+        } else {
+            showError(passwordError, 'Invalid username or password');
+        }
     }
 });
 

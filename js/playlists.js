@@ -36,8 +36,13 @@ const youtubeSearchInput = document.getElementById('youtubeSearchInput');
 const youtubeSearchBtn = document.getElementById('youtubeSearchBtn');
 const clearSearchBtn = document.getElementById('clearSearchBtn');
 const youtubeSearchResults = document.getElementById('youtubeSearchResults');
+const mp3UploadCard = document.getElementById('mp3UploadCard');
+const mp3UploadForm = document.getElementById('mp3UploadForm');
+const mp3TitleInput = document.getElementById('mp3Title');
+const mp3FileInput = document.getElementById('mp3File');
 const viewToggleBtn = document.getElementById('viewToggleBtn');
 const viewToggleIcon = document.getElementById('viewToggleIcon');
+const deletePlaylistBtn = document.getElementById('deletePlaylistBtn');
 const tableView = document.getElementById('tableView');
 const playlistTable = document.getElementById('playlistTable');
 const playlistTableBody = document.getElementById('playlistTableBody');
@@ -98,43 +103,75 @@ function initializeUserHeader() {
 }
 
 /**
- * Load playlists from localStorage and display them
+ * Load playlists from server API and display them
  */
-function loadPlaylists() {
+async function loadPlaylists() {
     if (!currentUser || !currentUser.username) {
         console.error('ERROR: Cannot load playlists - no current user or username');
         return;
     }
-    console.log('Loading playlists for user:', currentUser.username);
-    const playlists = getUserPlaylists(currentUser.username);
-    console.log('Found playlists:', playlists);
-    playlistList.innerHTML = '';
     
-    if (playlists.length === 0) {
-        playlistList.innerHTML = '<li style="padding: 20px; text-align: center; color: #999;">No playlists yet. Create one!</li>';
-        return;
-    }
-    
-    playlists.forEach(playlist => {
-        const li = document.createElement('li');
-        li.className = 'list-group-item playlist-item';
-        li.textContent = playlist.name;
-        li.setAttribute('data-playlist-id', playlist.id);
-        li.addEventListener('click', function() {
-            selectPlaylist(playlist.id);
+    try {
+        console.log('Loading playlists for user:', currentUser.username);
+        const response = await fetch(`/api/playlists/${currentUser.username}`);
+        
+        if (!response.ok) {
+            throw new Error('Failed to load playlists');
+        }
+        
+        const playlists = await response.json();
+        console.log('Found playlists:', playlists);
+        
+        // Also save to localStorage for fallback
+        saveUserPlaylists(currentUser.username, playlists);
+        
+        playlistList.innerHTML = '';
+        
+        if (playlists.length === 0) {
+            playlistList.innerHTML = '<li style="padding: 20px; text-align: center; color: #999;">No playlists yet. Create one!</li>';
+            return;
+        }
+        
+        playlists.forEach(playlist => {
+            const li = document.createElement('li');
+            li.className = 'list-group-item playlist-item';
+            li.textContent = playlist.name;
+            li.setAttribute('data-playlist-id', playlist.id);
+            li.addEventListener('click', function() {
+                selectPlaylist(playlist.id);
+            });
+            playlistList.appendChild(li);
         });
-        playlistList.appendChild(li);
-    });
-    
-    // Check for playlist ID in URL query string
-    const urlParams = new URLSearchParams(window.location.search);
-    const playlistIdFromUrl = urlParams.get('playlistId');
-    
-    if (playlistIdFromUrl) {
-        selectPlaylist(playlistIdFromUrl);
-    } else if (playlists.length > 0) {
-        // Select first playlist by default
-        selectPlaylist(playlists[0].id);
+        
+        // Check for playlist ID in URL query string
+        const urlParams = new URLSearchParams(window.location.search);
+        const playlistIdFromUrl = urlParams.get('playlistId');
+        
+        if (playlistIdFromUrl) {
+            selectPlaylist(playlistIdFromUrl);
+        } else if (playlists.length > 0) {
+            // Select first playlist by default
+            selectPlaylist(playlists[0].id);
+        }
+    } catch (error) {
+        console.error('Error loading playlists:', error);
+        // Fallback to localStorage
+        const playlists = getUserPlaylists(currentUser.username);
+        if (playlists.length > 0) {
+            playlistList.innerHTML = '';
+            playlists.forEach(playlist => {
+                const li = document.createElement('li');
+                li.className = 'list-group-item playlist-item';
+                li.textContent = playlist.name;
+                li.setAttribute('data-playlist-id', playlist.id);
+                li.addEventListener('click', function() {
+                    selectPlaylist(playlist.id);
+                });
+                playlistList.appendChild(li);
+            });
+        } else {
+            playlistList.innerHTML = '<li style="padding: 20px; text-align: center; color: #999;">No playlists yet. Create one!</li>';
+        }
     }
 }
 
@@ -188,11 +225,44 @@ window.playVideo = function(videoId) {
     );
 };
 
+
+/**
+ * Save playlists to server API AND localStorage
+ * This function ensures data is saved in both places for redundancy
+ */
+async function savePlaylistsToServer(playlists) {
+    // ALWAYS save to localStorage first (for immediate availability)
+    saveUserPlaylists(currentUser.username, playlists);
+    
+    // Then save to server
+    try {
+        const response = await fetch(`/api/playlists/${currentUser.username}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(playlists)
+        });
+        
+        if (!response.ok) {
+            throw new Error('Failed to save playlists to server');
+        }
+        
+        console.log(`Successfully saved ${playlists.length} playlists to server and localStorage`);
+        return true;
+    } catch (error) {
+        console.error('Error saving playlists to server:', error);
+        console.log('Data saved to localStorage only (server unavailable)');
+        // Data is already saved to localStorage above, so we return false but data is still available
+        return false;
+    }
+}
+
 /**
  * Select a playlist and display its content
  * @param {string} playlistId - Playlist ID to select
  */
-function selectPlaylist(playlistId) {
+async function selectPlaylist(playlistId) {
     currentPlaylistId = playlistId;
     
     // Update active state in sidebar
@@ -203,17 +273,35 @@ function selectPlaylist(playlistId) {
         }
     });
     
-    // Get playlist data
-    const playlists = getUserPlaylists(currentUser.username);
-    currentPlaylist = playlists.find(p => p.id === playlistId);
+    // Get playlist data from server
+    try {
+        const response = await fetch(`/api/playlists/${currentUser.username}`);
+        if (response.ok) {
+            const playlists = await response.json();
+            currentPlaylist = playlists.find(p => p.id === playlistId);
+            // Also save to localStorage for fallback
+            saveUserPlaylists(currentUser.username, playlists);
+        } else {
+            // Fallback to localStorage
+            const playlists = getUserPlaylists(currentUser.username);
+            currentPlaylist = playlists.find(p => p.id === playlistId);
+        }
+    } catch (error) {
+        console.error('Error loading playlist:', error);
+        // Fallback to localStorage
+        const playlists = getUserPlaylists(currentUser.username);
+        currentPlaylist = playlists.find(p => p.id === playlistId);
+    }
     
     if (!currentPlaylist) {
         playlistTitle.textContent = 'Playlist not found';
         playlistSongs.innerHTML = '<p class="text-muted text-center py-5">Playlist not found</p>';
         playPlaylistBtn.disabled = true;
         if (youtubeSearchCard) youtubeSearchCard.style.display = 'none';
+        if (mp3UploadCard) mp3UploadCard.style.display = 'none';
         if (playlistControls) playlistControls.style.display = 'none';
         if (viewToggleBtn) viewToggleBtn.style.display = 'none';
+        if (deletePlaylistBtn) deletePlaylistBtn.style.display = 'none';
         return;
     }
     
@@ -223,12 +311,22 @@ function selectPlaylist(playlistId) {
     // Enable play button
     playPlaylistBtn.disabled = false;
     
-    // Show YouTube search and controls
+    // Show YouTube search, MP3 upload and controls
     if (youtubeSearchCard) youtubeSearchCard.style.display = 'block';
+    if (mp3UploadCard) mp3UploadCard.style.display = 'block';
     if (playlistControls) playlistControls.style.display = 'flex';
     if (viewToggleBtn) viewToggleBtn.style.display = 'block';
+    if (deletePlaylistBtn) deletePlaylistBtn.style.display = 'block';
     
-    // Display playlist videos
+    // Store original videos (unsorted) for filtering - reset allVideos when selecting new playlist
+    allVideos = [...currentPlaylist.videos];
+    
+    // Clear search input when selecting new playlist
+    if (searchPlaylistInput) {
+        searchPlaylistInput.value = '';
+    }
+    
+    // Display playlist videos (will be sorted according to current sortOrder)
     displayPlaylistVideos(currentPlaylist.videos);
 }
 
@@ -267,8 +365,6 @@ function formatViewCount(viewCount) {
  * @param {Array} videos - Array of video objects
  */
 function displayPlaylistVideos(videos) {
-    allVideos = videos; // Store for filtering
-    
     if (videos.length === 0) {
         playlistSongs.innerHTML = '<p class="text-muted text-center py-5">This playlist is empty. Add your first song!</p>';
         playlistTable.style.display = 'none';
@@ -276,7 +372,8 @@ function displayPlaylistVideos(videos) {
         return;
     }
     
-    // Sort videos
+    // Sort videos according to current sort order
+    // Create a copy to avoid mutating the original array
     const sortedVideos = sortVideos([...videos]);
     
     // Clear previous content
@@ -306,6 +403,7 @@ function renderTableView(videos) {
         const videoId = video.videoId || extractYouTubeId(video.url || '');
         const thumbnail = video.thumbnail || getYouTubeThumbnail(videoId);
         const rating = video.rating || 1;
+        const isMP3 = video.type === 'mp3';
         
         const row = document.createElement('tr');
         row.setAttribute('data-video-id', videoId);
@@ -316,7 +414,7 @@ function renderTableView(videos) {
                     <img src="${thumbnail}" 
                          alt="${video.title}" 
                          style="width: 120px; height: 90px; object-fit: cover; cursor: pointer;" 
-                         onclick="playVideo('${videoId}')" 
+                         onclick="${isMP3 ? `playMP3('${video.url}')` : `playVideo('${videoId}')`}" 
                          title="Click to play">
                 ` : '<i class="fas fa-music fa-2x text-muted"></i>'}
             </td>
@@ -331,7 +429,7 @@ function renderTableView(videos) {
                        style="width: 70px; display: inline-block;">
             </td>
             <td class="text-end">
-                <button class="btn btn-success btn-sm me-2" onclick="playVideo('${videoId}')" title="Play video">
+                <button class="btn btn-success btn-sm me-2" onclick="${isMP3 ? `playMP3('${video.url}')` : `playVideo('${videoId}')`}" title="Play ${isMP3 ? 'audio' : 'video'}">
                     <i class="fas fa-play"></i>
                 </button>
                 <button class="btn btn-danger btn-sm delete-btn" data-video-id="${videoId}" title="Delete">
@@ -355,6 +453,7 @@ function renderCardsView(videos) {
         const videoId = video.videoId || extractYouTubeId(video.url || '');
         const thumbnail = video.thumbnail || getYouTubeThumbnail(videoId);
         const rating = video.rating || 1;
+        const isMP3 = video.type === 'mp3';
         
         const col = document.createElement('div');
         col.className = 'col-md-4';
@@ -367,7 +466,7 @@ function renderCardsView(videos) {
                          class="card-img-top" 
                          alt="${video.title}" 
                          style="height: 200px; object-fit: cover; cursor: pointer;" 
-                         onclick="playVideo('${videoId}')" 
+                         onclick="${isMP3 ? `playMP3('${video.url}')` : `playVideo('${videoId}')`}" 
                          title="Click to play">
                 ` : '<div class="card-img-top bg-secondary d-flex align-items-center justify-content-center" style="height: 200px;"><i class="fas fa-music fa-3x text-muted"></i></div>'}
                 <div class="card-body">
@@ -385,7 +484,7 @@ function renderCardsView(videos) {
                 </div>
                 <div class="card-footer">
                     <div class="d-flex gap-2">
-                        <button class="btn btn-success btn-sm flex-grow-1" onclick="playVideo('${videoId}')" title="Play video">
+                        <button class="btn btn-success btn-sm flex-grow-1" onclick="${isMP3 ? `playMP3('${video.url}')` : `playVideo('${videoId}')`}" title="Play ${isMP3 ? 'audio' : 'video'}">
                             <i class="fas fa-play me-1"></i>Play
                         </button>
                         <button class="btn btn-danger btn-sm delete-btn" data-video-id="${videoId}" title="Delete">
@@ -403,15 +502,50 @@ function renderCardsView(videos) {
 /**
  * Sort videos based on current sort order
  * @param {Array} videos - Array of videos to sort
- * @returns {Array} Sorted array
+ * @returns {Array} Sorted array (new array, doesn't modify original)
  */
 function sortVideos(videos) {
+    // Create a copy to avoid mutating the original array
+    const videosCopy = [...videos];
+    
     if (sortOrder === 'name') {
-        return videos.sort((a, b) => a.title.localeCompare(b.title));
+        // Sort alphabetically, case-insensitive, with proper handling of numbers and special characters
+        videosCopy.sort((a, b) => {
+            let titleA = (a.title || '').trim();
+            let titleB = (b.title || '').trim();
+            
+            // Normalize different dash types to a single character for consistent sorting
+            // Replace en dash (–) and em dash (—) with regular hyphen (-)
+            titleA = titleA.replace(/[–—]/g, '-');
+            titleB = titleB.replace(/[–—]/g, '-');
+            
+            // Use localeCompare with proper options for natural sorting
+            return titleA.localeCompare(titleB, 'en', { 
+                numeric: true,      // Handle numbers correctly (e.g., "Song 2" comes before "Song 10")
+                sensitivity: 'base', // Case-insensitive comparison
+                ignorePunctuation: false // Don't ignore punctuation
+            });
+        });
+        return videosCopy;
     } else if (sortOrder === 'rating') {
-        return videos.sort((a, b) => (b.rating || 1) - (a.rating || 1));
+        // Sort by rating (highest first, then by name for same rating)
+        return videosCopy.sort((a, b) => {
+            const ratingA = a.rating || 1;
+            const ratingB = b.rating || 1;
+            if (ratingB !== ratingA) {
+                return ratingB - ratingA; // Higher rating first
+            }
+            // If ratings are equal, sort by name
+            const titleA = (a.title || '').trim();
+            const titleB = (b.title || '').trim();
+            return titleA.localeCompare(titleB, 'en', { 
+                numeric: true,
+                sensitivity: 'base',
+                ignorePunctuation: false
+            });
+        });
     }
-    return videos;
+    return videosCopy;
 }
 
 /**
@@ -448,7 +582,7 @@ function attachVideoEventListeners() {
  * @param {string} videoId - Video ID
  * @param {number} rating - Rating value (1-10)
  */
-function updateVideoRating(videoId, rating) {
+async function updateVideoRating(videoId, rating) {
     if (!currentUser || !currentUser.username) {
         console.error('Cannot update rating - no current user');
         return;
@@ -462,15 +596,21 @@ function updateVideoRating(videoId, rating) {
         if (video) {
             // Ensure rating is between 1 and 10
             video.rating = Math.max(1, Math.min(10, rating));
-            saveUserPlaylists(currentUser.username, playlists);
+            await savePlaylistsToServer(playlists);
             
             // Update currentPlaylist to reflect changes
             currentPlaylist = playlist;
             
-            // Refresh display if sorting by rating
-            if (sortOrder === 'rating') {
-                displayPlaylistVideos(playlist.videos);
+            // Update allVideos to reflect the new rating
+            if (allVideos.length > 0) {
+                const videoIndex = allVideos.findIndex(v => v.videoId === videoId);
+                if (videoIndex !== -1) {
+                    allVideos[videoIndex].rating = video.rating;
+                }
             }
+            
+            // Refresh display to show updated rating and re-sort if needed
+            displayPlaylistVideos(playlist.videos);
         }
     }
 }
@@ -479,13 +619,13 @@ function updateVideoRating(videoId, rating) {
  * Delete video from playlist
  * @param {string} videoId - Video ID to delete
  */
-function deleteVideoFromPlaylist(videoId) {
+async function deleteVideoFromPlaylist(videoId) {
     const playlists = getUserPlaylists(currentUser.username);
     const playlist = playlists.find(p => p.id === currentPlaylistId);
     
     if (playlist) {
         playlist.videos = playlist.videos.filter(v => v.videoId !== videoId);
-        saveUserPlaylists(currentUser.username, playlists);
+        await savePlaylistsToServer(playlists);
         displayPlaylistVideos(playlist.videos);
     }
 }
@@ -494,14 +634,20 @@ function deleteVideoFromPlaylist(videoId) {
  * Delete entire playlist
  * @param {string} playlistId - Playlist ID to delete
  */
-function deletePlaylist(playlistId) {
-    if (confirm('Are you sure you want to delete this entire playlist?')) {
+async function deletePlaylist(playlistId) {
+    if (confirm('Are you sure you want to delete this entire playlist? This action cannot be undone.')) {
         const playlists = getUserPlaylists(currentUser.username);
+        const playlistToDelete = playlists.find(p => p.id === playlistId);
+        const playlistName = playlistToDelete ? playlistToDelete.name : 'Playlist';
+        
         const filteredPlaylists = playlists.filter(p => p.id !== playlistId);
-        saveUserPlaylists(currentUser.username, filteredPlaylists);
+        await savePlaylistsToServer(filteredPlaylists);
+        
+        // Show toast notification
+        showToast(`Playlist "${playlistName}" deleted successfully!`);
         
         // Reload playlists
-        loadPlaylists();
+        await loadPlaylists();
         
         // Clear current playlist if it was deleted
         if (currentPlaylistId === playlistId) {
@@ -510,6 +656,11 @@ function deletePlaylist(playlistId) {
             playlistTitle.textContent = 'Select a playlist from the list';
             playlistSongs.innerHTML = '<p class="text-muted text-center py-5">Select a playlist from the list to view its content</p>';
             playPlaylistBtn.disabled = true;
+            if (youtubeSearchCard) youtubeSearchCard.style.display = 'none';
+            if (mp3UploadCard) mp3UploadCard.style.display = 'none';
+            if (playlistControls) playlistControls.style.display = 'none';
+            if (viewToggleBtn) viewToggleBtn.style.display = 'none';
+            if (deletePlaylistBtn) deletePlaylistBtn.style.display = 'none';
         }
     }
 }
@@ -543,19 +694,26 @@ function showToast(message, linkUrl = null, linkText = null) {
 function handlePlaylistSearch() {
     const query = searchPlaylistInput.value.toLowerCase().trim();
     
+    // Get original videos from allVideos or currentPlaylist
+    const originalVideos = allVideos.length > 0 ? allVideos : (currentPlaylist ? [...currentPlaylist.videos] : []);
+    
     if (!query) {
-        displayPlaylistVideos(allVideos);
+        // No search query - show all original videos sorted
+        displayPlaylistVideos(originalVideos);
         return;
     }
     
-    const filteredVideos = allVideos.filter(video => 
-        video.title.toLowerCase().includes(query)
+    // Filter videos by search query
+    const filteredVideos = originalVideos.filter(video => 
+        (video.title || '').toLowerCase().includes(query)
     );
     
     if (filteredVideos.length === 0) {
         playlistSongs.innerHTML = '<p class="text-muted text-center py-5">No videos found matching your search</p>';
+        playlistTable.style.display = 'none';
+        cardsView.style.display = 'none';
     } else {
-        // Use the same display function but with filtered videos
+        // Display filtered videos (will be sorted according to current sortOrder)
         displayPlaylistVideos(filteredVideos);
     }
 }
@@ -703,17 +861,23 @@ function displayYouTubeResults(videos) {
 /**
  * Add YouTube video to current playlist
  */
-function addYouTubeVideoToPlaylist(videoId, title, thumbnail) {
+async function addYouTubeVideoToPlaylist(videoId, title, thumbnail) {
     if (!currentPlaylistId) {
         alert('Please select a playlist first');
         return;
     }
     
-    // Check if video already exists in playlist
-    const playlists = getUserPlaylists(currentUser.username);
+    // Get current playlists
+    let playlists = getUserPlaylists(currentUser.username);
     const playlist = playlists.find(p => p.id === currentPlaylistId);
     
-    if (playlist && playlist.videos.some(v => v.videoId === videoId)) {
+    if (!playlist) {
+        alert('Playlist not found');
+        return;
+    }
+    
+    // Check if video already exists in playlist
+    if (playlist.videos.some(v => v.videoId === videoId)) {
         alert('This video is already in the playlist');
         return;
     }
@@ -732,8 +896,14 @@ function addYouTubeVideoToPlaylist(videoId, title, thumbnail) {
     const added = addVideoToPlaylist(currentUser.username, currentPlaylistId, video);
     
     if (added) {
+        // Get updated playlists after adding video
+        playlists = getUserPlaylists(currentUser.username);
+        
+        // Save to server AND localStorage (savePlaylistsToServer does both)
+        await savePlaylistsToServer(playlists);
+        
         // Refresh display
-        selectPlaylist(currentPlaylistId);
+        await selectPlaylist(currentPlaylistId);
         showToast('Video added to playlist successfully!');
         // Refresh YouTube search results to update "Added" status
         if (youtubeSearchInput.value.trim()) {
@@ -785,11 +955,13 @@ if (youtubeSearchBtn && youtubeSearchInput) {
     });
     
     // Enter key in YouTube search input
-    youtubeSearchInput.addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') {
-            youtubeSearchBtn.click();
-        }
-    });
+    if (youtubeSearchInput) {
+        youtubeSearchInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                youtubeSearchBtn.click();
+            }
+        });
+    }
     
     // Clear search button
     if (clearSearchBtn) {
@@ -797,20 +969,123 @@ if (youtubeSearchBtn && youtubeSearchInput) {
     }
 }
 
+/**
+ * Handle MP3 file upload
+ */
+async function handleMP3Upload(e) {
+    e.preventDefault();
+    
+    if (!currentPlaylistId) {
+        alert('Please select a playlist first');
+        return;
+    }
+    
+    const title = mp3TitleInput.value.trim();
+    const file = mp3FileInput.files[0];
+    
+    if (!title || !file) {
+        alert('Please fill in all fields');
+        return;
+    }
+    
+    // Check file type
+    if (!file.type.includes('audio/mpeg') && !file.name.toLowerCase().endsWith('.mp3')) {
+        alert('Please upload an MP3 file');
+        return;
+    }
+    
+    try {
+        // Create FormData for file upload
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        // Upload file to server
+        const uploadResponse = await fetch('/api/upload', {
+            method: 'POST',
+            body: formData
+        });
+        
+        if (!uploadResponse.ok) {
+            const errorData = await uploadResponse.json();
+            throw new Error(errorData.error || 'Upload failed');
+        }
+        
+        const uploadData = await uploadResponse.json();
+        
+        // Create video object for MP3
+        const video = {
+            videoId: `mp3_${Date.now()}`, // Unique ID for MP3
+            title: title,
+            url: uploadData.url,
+            thumbnail: '', // No thumbnail for MP3
+            type: 'mp3',
+            rating: 1
+        };
+        
+        // Add video to playlist
+        const added = addVideoToPlaylist(currentUser.username, currentPlaylistId, video);
+        
+        if (added) {
+            // Get updated playlists after adding video
+            const updatedPlaylists = getUserPlaylists(currentUser.username);
+            
+            // Save to server AND localStorage (savePlaylistsToServer does both)
+            await savePlaylistsToServer(updatedPlaylists);
+            
+            // Refresh display
+            await selectPlaylist(currentPlaylistId);
+            // Reset form
+            mp3UploadForm.reset();
+            showToast('MP3 file uploaded and added to playlist successfully!');
+        } else {
+            alert('Failed to add MP3 to playlist');
+        }
+    } catch (error) {
+        console.error('Upload error:', error);
+        alert('Error uploading file: ' + error.message);
+    }
+}
+
+/**
+ * Play MP3 file
+ * Made global so it can be called from onclick handlers
+ */
+window.playMP3 = function(mp3Url) {
+    if (!mp3Url) return;
+    // Open MP3 in new window with audio player
+    const width = 500;
+    const height = 200;
+    const left = (screen.width - width) / 2;
+    const top = (screen.height - height) / 2;
+    
+    const playerWindow = window.open('', 'MP3 Player', `width=${width},height=${height},left=${left},top=${top},resizable=yes`);
+    playerWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>MP3 Player</title>
+            <link href="https://bootswatch.com/5/cyborg/bootstrap.min.css" rel="stylesheet">
+        </head>
+        <body class="p-4">
+            <h5>Audio Player</h5>
+            <audio controls autoplay style="width: 100%;">
+                <source src="${mp3Url}" type="audio/mpeg">
+                Your browser does not support the audio element.
+            </audio>
+        </body>
+        </html>
+    `);
+};
+
 // View toggle button
 if (viewToggleBtn) {
     viewToggleBtn.addEventListener('click', toggleViewMode);
 }
 
-// Enter key in YouTube search input
-youtubeSearchInput.addEventListener('keypress', function(e) {
-    if (e.key === 'Enter') {
-        youtubeSearchBtn.click();
-    }
-});
-
-// View toggle button
-viewToggleBtn.addEventListener('click', toggleViewMode);
+// MP3 upload form
+if (mp3UploadForm) {
+    mp3UploadForm.addEventListener('submit', handleMP3Upload);
+}
 
 // New playlist button
 newPlaylistBtn.addEventListener('click', function() {
@@ -822,23 +1097,14 @@ newPlaylistBtn.addEventListener('click', function() {
 });
 
 // Close new playlist modal
-if (closeNewPlaylistModal) {
-    closeNewPlaylistModal.addEventListener('click', function() {
-        if (newPlaylistModal) {
-            newPlaylistModal.hide();
-        }
-    });
-}
-if (closeNewPlaylistModalBtn) {
-    closeNewPlaylistModalBtn.addEventListener('click', function() {
-        if (newPlaylistModal) {
-            newPlaylistModal.hide();
-        }
-    });
-}
+const closeModalHandler = () => {
+    if (newPlaylistModal) newPlaylistModal.hide();
+};
+if (closeNewPlaylistModal) closeNewPlaylistModal.addEventListener('click', closeModalHandler);
+if (closeNewPlaylistModalBtn) closeNewPlaylistModalBtn.addEventListener('click', closeModalHandler);
 
 // Create playlist button
-createPlaylistBtn.addEventListener('click', function() {
+createPlaylistBtn.addEventListener('click', async function() {
     const playlistName = newPlaylistNameInput.value.trim();
     if (!playlistName) {
         alert('Please enter a playlist name');
@@ -846,11 +1112,15 @@ createPlaylistBtn.addEventListener('click', function() {
     }
     
     const newPlaylist = createPlaylist(currentUser.username, playlistName);
+    // Save to server
+    const playlists = getUserPlaylists(currentUser.username);
+    await savePlaylistsToServer(playlists);
+    
     if (newPlaylistModal) {
         newPlaylistModal.hide();
     }
-    loadPlaylists();
-    selectPlaylist(newPlaylist.id);
+    await loadPlaylists();
+    await selectPlaylist(newPlaylist.id);
     
     showToast('Playlist created successfully!');
 });
@@ -862,17 +1132,32 @@ playPlaylistBtn.addEventListener('click', function() {
         return;
     }
     
-    // Open first video in modal (you can enhance this to play all videos)
-    const firstVideo = currentPlaylist.videos[0];
-    if (firstVideo.type === 'youtube') {
-        window.open(`https://www.youtube.com/watch?v=${firstVideo.videoId}`, '_blank');
-    } else {
-        alert('MP3 playback not implemented in this version');
+    // Get sorted videos (according to current sort order)
+    const sortedVideos = sortVideos([...currentPlaylist.videos]);
+    
+    // Play only the first video in the playlist
+    // (YouTube and MP3 players don't support automatic sequential playback in separate windows)
+    const firstVideo = sortedVideos[0];
+    if (firstVideo) {
+        if (firstVideo.type === 'mp3') {
+            playMP3(firstVideo.url);
+        } else if (firstVideo.videoId) {
+            playVideo(firstVideo.videoId);
+        }
     }
 });
 
 // Search input
 searchPlaylistInput.addEventListener('input', handlePlaylistSearch);
+
+// Delete playlist button
+if (deletePlaylistBtn) {
+    deletePlaylistBtn.addEventListener('click', function() {
+        if (currentPlaylistId) {
+            deletePlaylist(currentPlaylistId);
+        }
+    });
+}
 
 // Sort button
 sortBtn.addEventListener('click', function() {
@@ -884,8 +1169,21 @@ sortBtn.addEventListener('click', function() {
         sortBtn.textContent = 'Sort A-Z';
     }
     
-    if (currentPlaylist) {
-        displayPlaylistVideos(currentPlaylist.videos);
+    // Re-display videos with new sort order
+    // Check if there's an active search filter
+    const searchQuery = searchPlaylistInput ? searchPlaylistInput.value.toLowerCase().trim() : '';
+    
+    if (searchQuery) {
+        // If searching, filter first then sort
+        const originalVideos = allVideos.length > 0 ? allVideos : (currentPlaylist ? [...currentPlaylist.videos] : []);
+        const filteredVideos = originalVideos.filter(video => 
+            (video.title || '').toLowerCase().includes(searchQuery)
+        );
+        displayPlaylistVideos(filteredVideos);
+    } else {
+        // No search - use original videos from allVideos or currentPlaylist
+        const videosToDisplay = allVideos.length > 0 ? allVideos : (currentPlaylist ? [...currentPlaylist.videos] : []);
+        displayPlaylistVideos(videosToDisplay);
     }
 });
 

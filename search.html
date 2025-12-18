@@ -10,16 +10,24 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         .video-card {
-            transition: transform 0.3s;
+            transition: all 0.3s ease;
+            border: 1px solid rgba(255, 255, 255, 0.1);
         }
         .video-card:hover {
-            transform: translateY(-5px);
+            transform: translateY(-8px);
+            box-shadow: 0 8px 16px rgba(0, 255, 255, 0.3);
+            border-color: #0ff;
         }
         .video-card.in-favorites {
             border: 2px solid #28a745 !important;
+            box-shadow: 0 4px 12px rgba(40, 167, 69, 0.4);
         }
         .video-thumbnail {
             cursor: pointer;
+            transition: opacity 0.3s;
+        }
+        .video-thumbnail:hover {
+            opacity: 0.9;
         }
         .video-title {
             cursor: pointer;
@@ -27,6 +35,20 @@
             -webkit-line-clamp: 2;
             -webkit-box-orient: vertical;
             overflow: hidden;
+            transition: color 0.2s;
+        }
+        .video-title:hover {
+            color: #0ff;
+        }
+        .btn {
+            transition: all 0.3s ease;
+        }
+        .btn:hover {
+            transform: scale(1.05);
+        }
+        .form-control:focus {
+            border-color: #0ff;
+            box-shadow: 0 0 0 0.2rem rgba(0, 255, 255, 0.25);
         }
         .video-container {
             position: relative;
@@ -139,6 +161,20 @@
                     <button type="button" class="btn btn-secondary" id="closeFavoritesModalBtn">Close</button>
                     <button type="button" class="btn btn-primary" id="addToFavoritesBtn">Add to Favorites</button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 11;">
+        <div id="toast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="toast-header">
+                <i class="fas fa-check-circle text-success me-2"></i>
+                <strong class="me-auto">Success</strong>
+                <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+            <div class="toast-body" id="toastMessage">
+                <!-- Toast message will be inserted here -->
             </div>
         </div>
     </div>
