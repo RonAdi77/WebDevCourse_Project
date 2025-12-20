@@ -53,7 +53,7 @@ const storage = multer.diskStorage({
 const upload = multer({
     storage: storage,
     limits: {
-        fileSize: 10 * 1024 * 1024 // 10MB limit
+        fileSize: 20 * 1024 * 1024 // 20MB limit
     },
     fileFilter: function (req, file, cb) {
         // Accept only MP3 files
@@ -293,7 +293,7 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
 app.use((err, req, res, next) => {
     if (err instanceof multer.MulterError) {
         if (err.code === 'LIMIT_FILE_SIZE') {
-            return res.status(400).json({ error: 'File too large. Maximum size is 10MB' });
+            return res.status(400).json({ error: 'File too large. Maximum size is 20MB' });
         }
         return res.status(400).json({ error: err.message });
     }

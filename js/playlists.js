@@ -18,11 +18,11 @@
 const YOUTUBE_API_KEY = 'AIzaSyDF10DVV1H_Hn2afX4ZD_i3frxfmDv4mHg';
 const YOUTUBE_API_URL = 'https://www.googleapis.com/youtube/v3/search';
 
-// Get DOM elements
-const userHeader = document.getElementById('userHeader');
-const userImage = document.getElementById('userImage');
-const userGreeting = document.getElementById('userGreeting');
-const logoutBtn = document.getElementById('logoutBtn');
+// Get DOM elements - will be initialized when DOM is ready
+let userHeader = null;
+let userImage = null;
+let userGreeting = null;
+let logoutBtn = null;
 const newPlaylistBtn = document.getElementById('newPlaylistBtn');
 const playlistList = document.getElementById('playlistList');
 const playPlaylistBtn = document.getElementById('playPlaylistBtn');
@@ -95,7 +95,11 @@ function checkAuthentication() {
  * Initialize user header with current user info
  */
 function initializeUserHeader() {
-    if (currentUser) {
+    // Get DOM elements if not already set
+    if (!userImage) userImage = document.getElementById('userImage');
+    if (!userGreeting) userGreeting = document.getElementById('userGreeting');
+    
+    if (currentUser && userImage && userGreeting) {
         userImage.src = currentUser.imageUrl;
         userImage.alt = currentUser.firstName;
         userGreeting.textContent = `Hello, ${currentUser.firstName}`;
@@ -1210,24 +1214,27 @@ window.addEventListener('load', function() {
     }
 });
 
-// Initialize page
-if (checkAuthentication()) {
-    initializeUserHeader();
-    loadPlaylists();
-}
-
-// Ensure logout button works - retry if not found initially
-if (!logoutBtn) {
-    document.addEventListener('DOMContentLoaded', function() {
-        const logoutBtnRetry = document.getElementById('logoutBtn');
-        if (logoutBtnRetry) {
-            logoutBtnRetry.addEventListener('click', function() {
+// Initialize page when DOM is ready
+document.addEventListener('DOMContentLoaded', function() {
+    // Get DOM elements
+    userHeader = document.getElementById('userHeader');
+    userImage = document.getElementById('userImage');
+    userGreeting = document.getElementById('userGreeting');
+    logoutBtn = document.getElementById('logoutBtn');
+    
+    if (checkAuthentication()) {
+        initializeUserHeader();
+        loadPlaylists();
+        
+        // Logout functionality
+        if (logoutBtn) {
+            logoutBtn.addEventListener('click', function() {
                 if (confirm('Are you sure you want to logout?')) {
                     clearCurrentUser();
                     window.location.href = 'login.html';
                 }
             });
         }
-    });
-}
+    }
+});
 

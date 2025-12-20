@@ -14,11 +14,11 @@
 const YOUTUBE_API_KEY = 'AIzaSyDF10DVV1H_Hn2afX4ZD_i3frxfmDv4mHg';
 const YOUTUBE_API_URL = 'https://www.googleapis.com/youtube/v3/search';
 
-// Get DOM elements
-const userHeader = document.getElementById('userHeader');
-const userImage = document.getElementById('userImage');
-const userGreeting = document.getElementById('userGreeting');
-const logoutBtn = document.getElementById('logoutBtn');
+// Get DOM elements - will be initialized when DOM is ready
+let userHeader = null;
+let userImage = null;
+let userGreeting = null;
+let logoutBtn = null;
 const searchInput = document.getElementById('searchInput');
 const searchBtn = document.getElementById('searchBtn');
 const resultsGrid = document.getElementById('resultsGrid');
@@ -62,7 +62,11 @@ function checkAuthentication() {
  * Initialize user header with current user info
  */
 function initializeUserHeader() {
-    if (currentUser) {
+    // Get DOM elements if not already set
+    if (!userImage) userImage = document.getElementById('userImage');
+    if (!userGreeting) userGreeting = document.getElementById('userGreeting');
+    
+    if (currentUser && userImage && userGreeting) {
         userImage.src = currentUser.imageUrl;
         userImage.alt = currentUser.firstName;
         userGreeting.textContent = `Hello, ${currentUser.firstName}`;
@@ -189,12 +193,12 @@ function displayResults(videos, query = '') {
         col.className = 'col-md-6 col-lg-4';
         
         const card = document.createElement('div');
-        card.className = `card video-card h-100 ${isInFavorites ? 'in-favorites' : ''}`;
+        card.className = `card h-100 ${isInFavorites ? 'border-success border-2' : ''}`;
         
         card.innerHTML = `
-            <img src="${video.thumbnail}" alt="${video.title}" class="card-img-top video-thumbnail" data-video-id="${video.videoId}" style="height: 200px; object-fit: cover;">
+            <img src="${video.thumbnail}" alt="${video.title}" class="card-img-top" data-video-id="${video.videoId}" style="height: 200px; object-fit: cover; cursor: pointer;" title="Click to play">
             <div class="card-body d-flex flex-column">
-                <h5 class="card-title video-title" title="${video.title}" data-video-id="${video.videoId}">${video.title}</h5>
+                <h5 class="card-title text-truncate" style="display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; cursor: pointer;" title="${video.title}" data-video-id="${video.videoId}">${video.title}</h5>
                 <div class="d-flex justify-content-between text-muted small mb-2">
                     <span>${formatDuration(video.duration)}</span>
                     <span>${formatViewCount(video.viewCount)}</span>
@@ -231,7 +235,7 @@ function displayResults(videos, query = '') {
  */
 function attachCardEventListeners() {
     // Play button and thumbnail/title clicks
-    document.querySelectorAll('.play-btn, .video-thumbnail, .video-title').forEach(element => {
+    document.querySelectorAll('.play-btn, .card-img-top[data-video-id], .card-title[data-video-id]').forEach(element => {
         element.addEventListener('click', function() {
             const videoId = this.getAttribute('data-video-id');
             if (videoId) {
@@ -301,8 +305,8 @@ function loadPlaylists() {
 async function openAddToFavoritesModal(videoId) {
     // Get video details from current search results
     const videoCard = document.querySelector(`[data-video-id="${videoId}"]`).closest('.card');
-    const title = videoCard.querySelector('.video-title').textContent;
-    const thumbnail = videoCard.querySelector('.video-thumbnail').src;
+    const title = videoCard.querySelector('.card-title').textContent;
+    const thumbnail = videoCard.querySelector('.card-img-top').src;
     
     currentVideoToAdd = {
         videoId: videoId,
@@ -585,31 +589,22 @@ document.querySelectorAll('input[name="favoriteOption"]').forEach(radio => {
 // Add to favorites button
 addToFavoritesBtn.addEventListener('click', handleAddToFavorites);
 
-// Initialize page
-if (checkAuthentication()) {
-    initializeUserHeader();
+// Initialize page when DOM is ready
+document.addEventListener('DOMContentLoaded', function() {
+    // Get DOM elements
+    if (!userImage) userImage = document.getElementById('userImage');
+    if (!userGreeting) userGreeting = document.getElementById('userGreeting');
+    if (!logoutBtn) logoutBtn = document.getElementById('logoutBtn');
     
-    // Load search from URL or sessionStorage
-    loadSearchFromURL();
-    
-    // Logout functionality - register after DOM is ready
-    if (logoutBtn) {
-        logoutBtn.addEventListener('click', function() {
-            if (confirm('Are you sure you want to logout?')) {
-                clearCurrentUser();
-                // Clear search results on logout
-                sessionStorage.removeItem('lastSearchQuery');
-                sessionStorage.removeItem('lastSearchResults');
-                window.location.href = 'login.html';
-            }
-        });
-    }
-} else {
-    // If logoutBtn is not found, try again after DOM loads
-    document.addEventListener('DOMContentLoaded', function() {
-        const logoutBtnRetry = document.getElementById('logoutBtn');
-        if (logoutBtnRetry) {
-            logoutBtnRetry.addEventListener('click', function() {
+    if (checkAuthentication()) {
+        initializeUserHeader();
+        
+        // Load search from URL or sessionStorage
+        loadSearchFromURL();
+        
+        // Logout functionality
+        if (logoutBtn) {
+            logoutBtn.addEventListener('click', function() {
                 if (confirm('Are you sure you want to logout?')) {
                     clearCurrentUser();
                     // Clear search results on logout
@@ -619,6 +614,6 @@ if (checkAuthentication()) {
                 }
             });
         }
-    });
-}
+    }
+});
 
