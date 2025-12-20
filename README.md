@@ -1,6 +1,6 @@
-# WebDev Course Project - Stage B (With Server)
+# WebDev Course Project - Part A (Live Server - Client-Side Only)
 
-A web-based music/video playlist management system with user authentication, YouTube video search, and playlist management. **This version includes a Node.js/Express server** for user management, playlist storage, and MP3 file uploads.
+A web-based music/video playlist management system with user authentication, YouTube video search, and playlist management. **This version is client-side only** and works with Live Server. All data is stored in browser localStorage.
 
 ## Project Structure
 
@@ -11,18 +11,12 @@ Project/
 ├── login.html              # User login page
 ├── search.html             # YouTube video search page
 ├── playlists.html          # Playlist management page
-├── server.js               # Node.js/Express server
-├── package.json           # Node.js dependencies
 ├── js/
-│   ├── storage.js         # LocalStorage/SessionStorage utilities (fallback)
-│   ├── register.js        # Registration functionality (API calls)
-│   ├── login.js           # Login functionality (API calls)
+│   ├── storage.js         # LocalStorage/SessionStorage utilities
+│   ├── register.js        # Registration functionality
+│   ├── login.js           # Login functionality
 │   ├── search.js          # YouTube search and video management
-│   └── playlists.js       # Playlist management functionality (API calls)
-├── data/                   # Server data files (created automatically)
-│   ├── users.json         # User data
-│   └── playlists.json     # Playlist data
-└── uploads/                # Uploaded MP3 files (created automatically)
+│   └── playlists.js       # Playlist management functionality
 ```
 
 **Note:** This project uses **Bootswatch Cyborg Theme** (Bootstrap 5) and **Font Awesome 6.0.0** via CDN for all styling and icons. No local CSS files are needed.
@@ -64,6 +58,7 @@ Project/
 - Video player modal
 - Add to favorites modal (create new or select existing playlist)
 - Visual indicator if video is already in favorites
+- Toast notifications with links to playlists
 
 ### 5. Playlists Page (`playlists.html`)
 - Sidebar with:
@@ -74,7 +69,6 @@ Project/
 - Main content area:
   - Displays selected playlist content
   - YouTube search within playlist (add videos directly)
-  - MP3 file upload support
   - Dual view mode: Table or Bootstrap Cards (toggle button)
   - Search within playlist
   - Sort by name (A-Z) or rating
@@ -112,7 +106,7 @@ Project/
 ### API Integration
 
 **YouTube Data API:**
-- Requires API key (set in `js/search.js`)
+- Requires API key (set in `js/search.js` and `js/playlists.js`)
 - Searches for videos
 - Retrieves video details (duration, view count)
 
@@ -131,10 +125,10 @@ Project/
 - Form validation
 - Password strength validation
 - Username uniqueness check
-- User registration
+- User registration (localStorage only)
 
 **login.js:**
-- Authentication
+- Authentication (localStorage only)
 - Session management
 - Redirect handling
 
@@ -147,7 +141,7 @@ Project/
 - URL query string synchronization (`?q=searchterm`)
 
 **playlists.js:**
-- Playlist management
+- Playlist management (localStorage only)
 - YouTube search within playlist
 - Dual view modes (table/cards)
 - Video rating (1-10)
@@ -171,20 +165,15 @@ Project/
      - GitHub link
      - Live website link
 
-3. **Install Dependencies:**
-   ```bash
-   npm install
-   ```
+3. **Run with Live Server:**
+   - Use VS Code Live Server extension, or
+   - Use any static file server
+   - Open `index.html` in your browser
 
-4. **Run the Server:**
-   ```bash
-   npm start
-   ```
-   The server will run on `http://localhost:3000`
-
-5. **Access the Application:**
-   - Open your browser and go to `http://localhost:3000`
-   - Or open `http://localhost:3000/index.html` directly
+4. **Access the Application:**
+   - Open your browser and navigate to the project directory
+   - Or use Live Server to serve the files
+   - Start from `index.html`
 
 ## Usage Flow
 
@@ -228,13 +217,13 @@ Project/
 
 ## Notes
 
-- **Server Required:** This project requires the Node.js server to be running
+- **No Server Required:** This version works entirely client-side with localStorage
 - Passwords are stored in plain text (NOT secure - for educational purposes only)
 - YouTube API has quota limits - you need your own API key
-- All data is stored on the server in JSON files (with localStorage fallback)
+- All data is stored in browser localStorage (cleared when browser data is cleared)
 - Search results are automatically saved and restored when navigating back
 - URL query strings are synced with search queries for bookmarking/sharing
-- MP3 uploads are stored on the server in the `uploads/` directory
+- **MP3 upload functionality is NOT available in this version** (only in Part B with server)
 - Enhanced UI with smooth animations and modern design
 
 ## Browser Compatibility
@@ -242,3 +231,14 @@ Project/
 - Modern browsers (Chrome, Firefox, Safari, Edge)
 - Requires JavaScript enabled
 - Requires localStorage and sessionStorage support
+
+## Differences from Part B (Server Version)
+
+This version (Part A) does NOT include:
+- Node.js/Express server
+- Server-side user authentication
+- Server-side playlist storage
+- MP3 file upload functionality
+- API endpoints (`/api/register`, `/api/login`, `/api/playlists`, `/api/upload`)
+
+All functionality in Part A uses localStorage only, making it suitable for deployment to static hosting services like GitHub Pages.
